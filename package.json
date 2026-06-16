@@ -1,0 +1,28 @@
+{
+  "name": "rumongo",
+  "version": "0.1.0",
+  "description": "Rust-native MongoDB read driver for Node.js",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "napi": {
+    "name": "rumongo"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "rumongo.*.node"
+  ],
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform",
+    "typecheck": "tsc --noEmit",
+    "build:ts": "tsc",
+    "test:integration": "node --test __tests__/integration/"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.4",
+    "mongodb": "^6.8.0",
+    "mongoose": "^8.5.0",
+    "typescript": "^5.4.5"
+  }
+}
