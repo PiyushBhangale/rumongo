@@ -17,6 +17,93 @@ field access.
   worker-thread offload.
 - **7.3× vs the raw driver** when reading a few fields of a wide doc (lazy).
 
+## How it works (in plain terms)
+
+MongoDB sends every document over the wire as **BSON** — a compact binary blob.
+Before your code can use it, something has to **decode** that binary into objects
+you can read (`doc.name`, `doc.age`, …). The whole speed difference comes down to
+two questions: **who** does the decoding (the single JavaScript thread, or many
+Rust CPU cores) and **how much** it decodes (every field, or only the ones you touch).
+
+### 1. A normal `find` — who decodes the data?
+
+The official driver does all the binary→object work on the **one** thread that
+also runs your entire app. rumongo hands that work to Rust, spread across CPU
+cores, **off** the main thread — so your app stays responsive.
+
+```mermaid
+flowchart TB
+  subgraph OFF["🔵 Official Node driver"]
+    direction TB
+    O1["MongoDB sends BSON (binary)"]
+    O2["JS main thread decodes<br/>every field of every doc"]
+    O3["Builds thousands of JS objects<br/>(heavy garbage collection)"]
+    O4["Your code gets the docs"]
+    O1 --> O2 --> O3 --> O4
+    OX(["⚠️ All on the ONE thread that<br/>runs your app → event loop frozen"])
+    O2 -.-> OX
+  end
+
+  subgraph RU["🟢 rumongo (Rust)"]
+    direction TB
+    R1["MongoDB sends BSON (binary)"]
+    R2["Rust fetches batches in a pipeline<br/>(network + parsing overlap)"]
+    R3["Many CPU cores decode<br/>batches in parallel"]
+    R4["Hand finished result back to JS"]
+    R5["Your code gets the docs"]
+    R1 --> R2 --> R3 --> R4 --> R5
+    RX(["✅ Done in Rust, OFF the JS thread<br/>→ main event loop stays free"])
+    R3 -.-> RX
+  end
+```
+
+### 2. `findLazy` — how much does it decode?
+
+Each document may have 25 fields, but your loop might read only 2. The official
+driver decodes **all** of them up front. rumongo keeps the doc as raw bytes and
+decodes a field **only when you touch it**.
+
+```mermaid
+flowchart LR
+  subgraph OFFL["🔵 Official"]
+    A1["Get a doc"] --> A2["Decode ALL 25 fields<br/>up front"] --> A3["You read 2 →<br/>23 fields of work wasted"]
+  end
+  subgraph RUL["🟢 rumongo findLazy"]
+    B1["Get a doc,<br/>keep it as raw bytes"] --> B2["Decode a field ONLY<br/>when accessed (doc.name)"] --> B3["You read 2 →<br/>decode 2, skip 23"]
+  end
+```
+
+### 3. Concurrent load — why "jitter" stays low
+
+"Jitter" = how long the event loop froze, i.e. how unresponsive your app got to
+*other* users while a query was being decoded. Under many concurrent queries the
+official driver piles every decode onto the single JS thread; rumongo keeps that
+work in Rust, off-thread.
+
+```mermaid
+sequenceDiagram
+  participant App as Your app (event loop)
+  participant JS as Official driver
+  participant Rust as rumongo (Rust threads)
+
+  Note over App,JS: Official — decode runs ON the event loop
+  App->>JS: 10 queries at once
+  JS-->>JS: decode all BSON on the JS thread
+  Note over App: ⛔ loop frozen — other users wait (high jitter)
+  JS-->>App: results
+
+  Note over App,Rust: rumongo — decode runs OFF the event loop
+  App->>Rust: 10 queries at once
+  Rust-->>Rust: decode BSON on Rust CPU cores
+  Note over App: ✅ loop free — app keeps answering (low jitter)
+  Rust-->>App: results
+```
+
+**One line:** the official driver does *all* the binary→object work on the single
+thread that also runs your whole app; rumongo pushes that work into Rust on
+multiple cores, off the main thread, and — in lazy mode — only does the part you
+actually use.
+
 ## Install / build
 
 ```bash
