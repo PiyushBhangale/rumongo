@@ -1,22 +1,56 @@
 {
   "name": "rumongo",
-  "version": "0.1.0",
-  "description": "Rust-native MongoDB read driver for Node.js",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "version": "0.1.1",
+  "description": "Rust-native MongoDB read driver for Node.js — faster reads than the official driver and Mongoose",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "author": {
+    "name": "Piyush Bhangale",
+    "email": "piyushbhangale1995@gmail.com",
+    "url": "https://github.com/PiyushBhangale"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PiyushBhangale/rumongo.git"
+  },
+  "homepage": "https://github.com/PiyushBhangale/rumongo#readme",
+  "bugs": {
+    "url": "https://github.com/PiyushBhangale/rumongo/issues"
+  },
+  "keywords": [
+    "mongodb",
+    "mongo",
+    "driver",
+    "rust",
+    "napi",
+    "bson",
+    "mongoose",
+    "performance",
+    "native"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
   "napi": {
     "name": "rumongo"
   },
   "files": [
     "index.js",
     "index.d.ts",
-    "rumongo.*.node"
+    "dist/",
+    "worker/",
+    "rumongo.*.node",
+    "MIGRATION.md",
+    "BENCHMARKS.md",
+    "README.md"
   ],
   "scripts": {
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
-    "typecheck": "tsc --noEmit",
     "build:ts": "tsc",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "napi build --platform --release && tsc",
     "test:integration": "node --test __tests__/integration/"
   },
   "devDependencies": {

@@ -1,5 +1,14 @@
 # rumongo
 
+[![npm version](https://img.shields.io/npm/v/rumongo.svg)](https://www.npmjs.com/package/rumongo)
+[![npm downloads](https://img.shields.io/npm/dm/rumongo.svg)](https://www.npmjs.com/package/rumongo)
+[![license](https://img.shields.io/npm/l/rumongo.svg)](LICENSE)
+
+> Built by **[Piyush Bhangale](https://github.com/PiyushBhangale)** —
+> 📧 [piyushbhangale1995@gmail.com](mailto:piyushbhangale1995@gmail.com).
+> A Rust-native MongoDB read driver that beats the official Node driver and
+> Mongoose on read throughput and event-loop responsiveness.
+
 **Rust + Mongo.** A Rust-native MongoDB **read** driver for Node.js (napi-rs).
 Faster reads than the official Node driver and Mongoose by doing BSON parsing in
 Rust — pipelined fetch, off-thread parallel parse, and optional lazy zero-copy
@@ -9,13 +18,51 @@ field access.
 > covered — keep the official driver or Mongoose for those. See
 > [MIGRATION.md](MIGRATION.md).
 
-## Performance (local MongoDB, see [BENCHMARKS.md](BENCHMARKS.md))
+## Performance
 
 - **1.6–3.7× faster reads** than the official Node driver (by projection width).
 - **~2× vs Mongoose `.lean()`, ~5× vs hydrated Mongoose.**
 - **~10× lower event-loop jitter** on a single query; **near-zero** with lazy or
   worker-thread offload.
 - **7.3× vs the raw driver** when reading a few fields of a wide doc (lazy).
+
+### Final benchmark results
+
+Consolidated preset suite (`bench/suite.js`), 30k docs over a 45-field document,
+warmup + 6 iters, mean ± sd. Local MongoDB 8.0, Node v20.4, 12 cores.
+[BENCHMARKS.md](BENCHMARKS.md) keeps the **full progressive log** (every phase);
+the tables below are the **final snapshot**.
+
+**A) Driver `find` — official Node driver vs rumongo (eager)**
+
+| preset | fields | official (ms) | rumongo (ms) | speedup |
+|---|---|---|---|---|
+| few | 4 | 649 ± 95 | 178 ± 17 | **3.65×** |
+| small | 9 | 792 ± 62 | 304 ± 16 | 2.61× |
+| medium | 15 | 687 ± 49 | 418 ± 54 | 1.64× |
+| large | 35 | 1532 ± 132 | 841 ± 61 | 1.82× |
+| full | 45 | 2032 ± 135 | 1031 ± 59 | 1.97× |
+
+**B) ODM — Mongoose `.lean()` vs rumongo Model**
+
+| preset | fields | mongoose (ms) | Model (ms) | speedup |
+|---|---|---|---|---|
+| few | 4 | 477 ± 53 | 177 ± 18 | 2.69× |
+| small | 9 | 559 ± 35 | 284 ± 31 | 1.97× |
+| medium | 15 | 680 ± 68 | 405 ± 35 | 1.68× |
+| large | 35 | 1455 ± 24 | 850 ± 65 | 1.71× |
+| full | 45 | 2041 ± 167 | 1031 ± 98 | 1.98× |
+
+**C) Event-loop jitter** (full preset, single query): official `149.2ms` ·
+rumongo `13.8ms` (~10× lower).
+
+**D) Lazy / wide-doc, few-field read** (20k docs × 33 fields, read 2 fields, 10
+concurrent): rumongo lazy **7.3× vs the official driver**, 2.2× vs rumongo eager.
+
+> ⚠️ All numbers are **localhost** (≈0 network latency) — a lower bound for
+> pipeline/concurrency wins, upper bound for CPU-bound wins. The headline 15–20×
+> shows up only under lazy/narrow-read or worker-offload patterns, not eager
+> full-document reads.
 
 ## How it works (in plain terms)
 
@@ -212,6 +259,28 @@ node --test __tests__/integration/   # connectivity, pipeline, leak
 node bench/suite.js                  # benchmark suite
 ```
 
+## Install (from npm)
+
+```bash
+npm install rumongo
+```
+
+```js
+const { MongoClient, Model, WorkerPool } = require('rumongo')
+```
+
+## Author
+
+**Piyush Bhangale**
+- GitHub: [@PiyushBhangale](https://github.com/PiyushBhangale)
+- npm: [rumongo](https://www.npmjs.com/package/rumongo)
+- Email: piyushbhangale1995@gmail.com
+
+Built rumongo to push MongoDB read performance in Node past the official driver
+and Mongoose using Rust + napi-rs (off-thread BSON parse, lazy field access,
+worker-pool offload). Contributions / issues welcome on
+[GitHub](https://github.com/PiyushBhangale/rumongo/issues).
+
 ## License
 
-MIT
+MIT © [Piyush Bhangale](https://github.com/PiyushBhangale)
